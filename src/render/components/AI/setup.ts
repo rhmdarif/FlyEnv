@@ -7,6 +7,7 @@ import { AsyncComponentShow } from '@/util/AsyncComponent'
 import localForage from 'localforage'
 import { SetupStore } from '@/components/Setup/store'
 import { ElMessageBox } from 'element-plus'
+import { LICENSE_TRIAL_UNLIMITED } from '@shared/licenseLimits'
 
 export type ToolCallItem = {
   function: {
@@ -126,7 +127,7 @@ export const Setup = () => {
   const setupStore = SetupStore()
 
   const startNewChat = () => {
-    if (!setupStore.isActive) {
+    if (!setupStore.isActive && !LICENSE_TRIAL_UNLIMITED) {
       const showTips = () => {
         const time = Math.round(new Date().getTime() / 1000)
         localForage.setItem('flyenv-ai-start-try-time', time).then().catch()

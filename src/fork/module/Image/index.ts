@@ -185,7 +185,7 @@ class Image extends Base {
         isLock = uid !== uuid
       }
       const currentTime = Math.round(new Date().getTime() / 1000)
-      if (isLock && (!t || isLicenseTrialExpired(t, currentTime))) {
+      if (isLock && isLicenseTrialExpired(t, currentTime)) {
         const msg = I18nT('fork.trialEnd')
         return reject(new Error(msg))
       }

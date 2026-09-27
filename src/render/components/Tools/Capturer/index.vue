@@ -8,7 +8,7 @@
   import Setup from '@/components/Tools/Capturer/setup'
   import { SetupStore } from '@/components/Setup/store'
   import { ElMessageBox } from 'element-plus'
-  import { isLicenseTrialExpired } from '@shared/licenseLimits'
+  import { isLicenseTrialExpired, LICENSE_TRIAL_UNLIMITED } from '@shared/licenseLimits'
 
   const name = ref()
   const keyInputAbled = ref(false)
@@ -62,7 +62,7 @@
   )
 
   const doCapturer = async (hideWindow: boolean) => {
-    if (!setupStore.isActive && Setup.trialStartTime === 0) {
+    if (!setupStore.isActive && !LICENSE_TRIAL_UNLIMITED && Setup.trialStartTime === 0) {
       await ElMessageBox.alert(I18nT('ai.noLiencesTips'))
       Setup.trialStartTime = Math.round(new Date().getTime() / 1000)
       Setup.save(false)
