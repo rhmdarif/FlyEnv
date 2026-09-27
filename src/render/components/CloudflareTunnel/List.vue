@@ -24,7 +24,7 @@
               style="border-bottom: var(--el-table-border)"
             >
               <span>{{ I18nT('host.CloudflareTunnel.TunnelRule') }}</span>
-              <template v-if="isLocked && props.row.dns.length > 0">
+              <template v-if="isDnsLocked(props.row)">
                 <el-tooltip placement="top" :content="I18nT('host.CloudflareTunnel.licenseTips')">
                   <el-button type="warning" link :icon="Lock"></el-button>
                 </el-tooltip>
@@ -220,7 +220,8 @@
     delDNS,
     addDNS,
     log,
-    isLocked
+    isLocked,
+    isDnsLocked
   } = Setup()
 
   const action = (item: CloudflareTunnel, index: number, flag: string) => {

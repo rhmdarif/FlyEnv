@@ -20,6 +20,7 @@ import {
 import { machineId } from '../../Fn'
 import { publicDecrypt } from 'crypto'
 import { I18nT } from '@lang/runtime'
+import { isLicenseTrialExpired } from '@shared/licenseLimits'
 
 type ImageFileItemType = {
   path: string
@@ -184,7 +185,7 @@ class Image extends Base {
         isLock = uid !== uuid
       }
       const currentTime = Math.round(new Date().getTime() / 1000)
-      if (isLock && (!t || t + 3 * 24 * 60 * 60 < currentTime)) {
+      if (isLock && (!t || isLicenseTrialExpired(t, currentTime))) {
         const msg = I18nT('fork.trialEnd')
         return reject(new Error(msg))
       }

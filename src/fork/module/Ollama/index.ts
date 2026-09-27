@@ -31,6 +31,7 @@ import { pcReportLinux } from './Linux'
 import { pcReportWindows } from './Windows'
 import process from 'node:process'
 import { withBinVersionCache } from '../../util/BinVersionCache'
+import { isLicenseTrialExpired } from '@shared/licenseLimits'
 
 const archiveSuffixes = ['.tar.zst', '.tar.gz', '.tar.xz', '.tar.bz2', '.tgz', '.tbz2', '.zip']
 
@@ -382,7 +383,7 @@ class Ollama extends Base {
         isLock = uid !== uuid
       }
       const currentTime = Math.round(new Date().getTime() / 1000)
-      if (isLock && (!t || t + 3 * 24 * 60 * 60 < currentTime)) {
+      if (isLock && (!t || isLicenseTrialExpired(t, currentTime))) {
         const msg = I18nT('fork.trialEnd')
         on({
           message: {

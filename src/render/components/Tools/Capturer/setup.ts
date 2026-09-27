@@ -4,6 +4,7 @@ import IPC from '@/util/IPC'
 import { MessageSuccess } from '@/util/Element'
 import { I18nT } from '@lang/index'
 import { SetupStore } from '@/components/Setup/store'
+import { isLicenseTrialExpired } from '@shared/licenseLimits'
 
 class CapturerSetup {
   key: string[] = []
@@ -15,7 +16,7 @@ class CapturerSetup {
     const setupStore = SetupStore()
     if (!setupStore.isActive && this.trialStartTime > 0) {
       const currentTime = Math.round(new Date().getTime() / 1000)
-      if (this.trialStartTime + 3 * 24 * 60 * 60 < currentTime) {
+      if (isLicenseTrialExpired(this.trialStartTime, currentTime)) {
         return
       }
     }

@@ -166,6 +166,7 @@
   import { SetupStore } from '@/components/Setup/store'
   import { I18nT } from '@lang/index'
   import { initFileDroper } from '@/util/File'
+  import { isLicenseTrialExpired } from '@shared/licenseLimits'
 
   const setupStore = SetupStore()
   const choosed = ref([])
@@ -197,7 +198,7 @@
     }
 
     const currentTime = Math.round(new Date().getTime() / 1000)
-    if (ImageBatch.trialStartTime + 3 * 24 * 60 * 60 < currentTime) {
+    if (isLicenseTrialExpired(ImageBatch.trialStartTime, currentTime)) {
       return true
     }
 

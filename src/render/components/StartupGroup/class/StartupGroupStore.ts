@@ -7,6 +7,7 @@ import type {
   StartupGroupRunnerContract,
   StartupGroupStoreDependencies
 } from '../type'
+import { isLicenseLimitReached } from '@shared/licenseLimits'
 
 export class StartupGroupStore {
   groups: StartupGroup[] = []
@@ -83,7 +84,7 @@ export class StartupGroupStore {
   }
 
   isCreationLocked(isLicenseActive: boolean) {
-    return !isLicenseActive && this.groups.length >= 1
+    return !isLicenseActive && isLicenseLimitReached('startupGroup', this.groups.length)
   }
 
   async add(draft: StartupGroupDraft) {

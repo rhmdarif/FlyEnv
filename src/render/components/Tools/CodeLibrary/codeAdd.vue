@@ -82,6 +82,7 @@
   import { uuid } from '@/util/Index'
   import { Plus, Lock } from '@element-plus/icons-vue'
   import { SetupStore } from '@/components/Setup/store'
+  import { isLicenseLimitReached } from '@shared/licenseLimits'
 
   const { show, onClosed, onSubmit, closedFn, callback } = AsyncComponentSetup()
 
@@ -118,7 +119,11 @@
   const setupStore = SetupStore()
 
   const isLock = computed(() => {
-    return !setupStore.isActive && CodeLibrary.items.length > 2 && !props.item?.id
+    return (
+      !setupStore.isActive &&
+      isLicenseLimitReached('codeLibrary', CodeLibrary.items.length) &&
+      !props.item?.id
+    )
   })
 
   const groups = computed(() => {

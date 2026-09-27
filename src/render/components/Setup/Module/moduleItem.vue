@@ -84,6 +84,7 @@
   import Router from '@/router'
   import { canSetModuleVisibility } from '@/core/ModuleVisibility'
   import type { AllAppModule } from '@/core/type'
+  import { isLicenseLimitReached } from '@shared/licenseLimits'
 
   const props = defineProps<{
     index: number
@@ -207,7 +208,9 @@
   const setupStore = SetupStore()
 
   const isLock = computed(() => {
-    return !setupStore.isActive && AppCustomerModule.module.length > 2
+    return (
+      !setupStore.isActive && isLicenseLimitReached('customModule', AppCustomerModule.module.length)
+    )
   })
 
   const toLicense = () => {

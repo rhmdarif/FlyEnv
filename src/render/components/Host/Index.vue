@@ -114,12 +114,13 @@
   import { join, dirname } from '@/util/path-browserify'
   import { dialog, clipboard, shell, fs } from '@/util/NodeFn'
   import { splitHostAliases } from '@shared/siteRuntime'
+  import { isLicenseLimitReached } from '@shared/licenseLimits'
 
   const appStore = AppStore()
   const setupStore = SetupStore()
 
   const isLock = computed(() => {
-    return !setupStore.isActive && appStore.hosts.length > 2
+    return !setupStore.isActive && isLicenseLimitReached('host', appStore.hosts.length)
   })
 
   const tabs = computed(() => {

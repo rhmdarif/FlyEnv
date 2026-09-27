@@ -8,6 +8,7 @@
   import Setup from '@/components/Tools/Capturer/setup'
   import { SetupStore } from '@/components/Setup/store'
   import { ElMessageBox } from 'element-plus'
+  import { isLicenseTrialExpired } from '@shared/licenseLimits'
 
   const name = ref()
   const keyInputAbled = ref(false)
@@ -145,7 +146,7 @@
     }
 
     const currentTime = Math.round(new Date().getTime() / 1000)
-    if (Setup.trialStartTime + 3 * 24 * 60 * 60 < currentTime) {
+    if (isLicenseTrialExpired(Setup.trialStartTime, currentTime)) {
       return true
     }
 

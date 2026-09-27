@@ -7,6 +7,7 @@ import { MessageError } from '@/util/Element'
 import { reactive } from 'vue'
 import localForage from 'localforage'
 import { shell } from '@/util/NodeFn'
+import { LICENSE_REMINDER_SECONDS } from '@shared/licenseLimits'
 
 type GitHubUser = {
   uuid: string
@@ -85,7 +86,7 @@ export const SetupStore = defineStore('setup', {
 
             if (!this.isActive) {
               const currentTime = Math.round(new Date().getTime() / 1000)
-              const maxTime = 7 * 24 * 60 * 60
+              const maxTime = LICENSE_REMINDER_SECONDS
               if (currentTime - time > maxTime) {
                 const today = new Date().toDateString()
                 const lastAlert = localStorage.getItem('flyenv-license-alert-date')

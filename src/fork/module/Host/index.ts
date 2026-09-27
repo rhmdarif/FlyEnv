@@ -40,6 +40,7 @@ import { splitHostAliases } from '@shared/siteRuntime'
 import { HostsFileLinux, HostsFileMacOS, HostsFileWindows } from '@shared/PlatFormConst'
 import { AppHelperCheck } from '@shared/AppHelperCheck'
 import { reconcileSystemHostsBlock } from './SystemHostsBlock'
+import { isLicenseLimitReached } from '@shared/licenseLimits'
 
 export class Host extends Base {
   hostsFile = ''
@@ -153,7 +154,7 @@ export class Host extends Base {
 
       let isLock = false
       if (!global.Server.Licenses) {
-        isLock = hostList.length > 2
+        isLock = isLicenseLimitReached('host', hostList.length)
       } else {
         const getRSAKey = () => {
           const a = '0+u/eiBrB/DAskp9HnoIgq1MDwwbQRv6rNxiBK/qYvvdXJHKBmAtbe0+SW8clzne'
