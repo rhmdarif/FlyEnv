@@ -58,18 +58,18 @@
   })
   const startupGroups = computed(() => store.startupGroups)
 
-  // 弹窗相对托盘图标的边,由主进程按任务栏位置下发;箭头贴在朝向图标的那条边上
+  // 弹窗相对托盘图标的边与箭头偏移,由主进程按任务栏位置一次性下发;
+  // 应用后必须回执,主进程收到回执才会显示窗口,保证第一帧就是最终布局
   const side: Ref<TrayPopupSide> = ref<TrayPopupSide>(store.isWindows ? 'up' : 'down')
-  IPC.on('APP:Tray-Popup-Side').then((key: string, res: any) => {
-    if (res === 'up' || res === 'down' || res === 'left' || res === 'right') {
-      side.value = res
-    }
-  })
-
   const arrowOffset: Ref<number> = ref(15)
-  IPC.on('APP:Tray-Arrow-Offset').then((key: string, res: any) => {
-    const offset = Number(res)
+  IPC.on('APP:Tray-Popup-Layout').then((key: string, res: any) => {
+    const nextSide = res?.side
+    if (nextSide === 'up' || nextSide === 'down' || nextSide === 'left' || nextSide === 'right') {
+      side.value = nextSide
+    }
+    const offset = Number(res?.arrowOffset)
     arrowOffset.value = Number.isFinite(offset) ? offset : 15
+    IPC.send('APP:Tray-Popup-Layout-Applied', res?.nonce ?? 0)
   })
 
   const arrowStyle = computed(() => {
@@ -226,8 +226,7 @@
 
         .tray-menu-separator {
           margin: 4px 18px;
-          border-top: 1px solid currentColor;
-          opacity: 0.16;
+          border-top: 1px solid var(--flyenv-sidebar-divider-color);
         }
 
         > .bottom-tool {
@@ -336,25 +335,18 @@
     }
   }
   html.light {
-    --base-bg-color: #f4f5f6;
-    --base-bg-color-2: rgba(51, 68, 85, 0.2);
-    --base-bg-color-1: rgba(51, 68, 85, 0.15);
-
-    body {
-      background: var(--base-bg-color);
-    }
-
     #app {
       .popper-arrow {
-        background: var(--base-bg-color);
-        border: 1px solid var(--base-bg-color);
+        background: var(--flyenv-light-sidebar);
+        border: 1px solid var(--flyenv-light-sidebar);
       }
     }
     .tray-aside-inner {
-      background: var(--base-bg-color);
+      background: var(--flyenv-light-sidebar);
+      color: var(--flyenv-light-text);
 
       > .top-tool {
-        border-bottom: 1px solid var(--base-bg-color-1);
+        border-bottom: 1px solid var(--flyenv-light-border);
         > li {
           &:hover {
             background: var(--base-bg-color-2);
@@ -364,21 +356,26 @@
       }
 
       .menu {
-        color: #345;
+        color: var(--flyenv-light-text);
 
         li {
           &:hover {
-            background: var(--base-bg-color-1);
+            background: var(--base-bg-color-2);
           }
         }
 
         svg {
-          color: #345;
+          color: var(--flyenv-light-text);
         }
       }
+
       > .bottom-tool {
-        border-top: 1px solid var(--base-bg-color-1);
-        color: #345;
+        border-top: 1px solid var(--flyenv-light-border);
+        color: var(--flyenv-light-text);
+
+        > li:hover {
+          color: var(--flyenv-light-primary);
+        }
       }
     }
   }

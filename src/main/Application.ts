@@ -894,6 +894,9 @@ export default class Application extends EventEmitter {
   }
 
   show(page = 'index') {
+    if (page === 'index') {
+      this.trayManager?.closePopup()
+    }
     this.windowManager.showWindow(page)
   }
 
@@ -962,9 +965,8 @@ export default class Application extends EventEmitter {
           this.languageCoordinator.snapshot()
         )
         this.trayManager.addModernStyleListener()
-        // 首次显示前先把弹窗方向/箭头同步给渲染层,并在屏幕外消耗掉系统的窗口淡入
-        this.syncTrayPopupLayout()
-        this.trayManager.primePopupWindow()
+        // 首次显示前先把弹窗方向/箭头同步给渲染层
+        this.trayManager.pushPopupLayout()
       })
 
       // 更新 IPC 处理器的 trayWindow 引用
@@ -979,25 +981,6 @@ export default class Application extends EventEmitter {
     this.ipcHandler.updateDependencies({ trayWindow: undefined })
   }
 
-  private syncTrayPopupLayout() {
-    if (!this.trayWindow) {
-      return
-    }
-    const layout = this.trayManager.getPopupLayout()
-    this.windowManager.sendCommandTo(
-      this.trayWindow,
-      'APP:Tray-Popup-Side',
-      'APP:Tray-Popup-Side',
-      layout.side
-    )
-    this.windowManager.sendCommandTo(
-      this.trayWindow,
-      'APP:Tray-Arrow-Offset',
-      'APP:Tray-Arrow-Offset',
-      layout.arrowOffset
-    )
-  }
-
   private handleTrayClick(
     x: number,
     y: number,
@@ -1005,24 +988,9 @@ export default class Application extends EventEmitter {
     show: boolean,
     side: TrayPopupSide
   ) {
-    if (!this.trayWindow) {
-      return
-    }
     if (show) {
-      // 布局要先于显示下发,窗口恢复不透明后就不会再重排
-      this.windowManager.sendCommandTo(
-        this.trayWindow,
-        'APP:Tray-Popup-Side',
-        'APP:Tray-Popup-Side',
-        side
-      )
-      this.windowManager.sendCommandTo(
-        this.trayWindow,
-        'APP:Tray-Arrow-Offset',
-        'APP:Tray-Arrow-Offset',
-        arrowOffset
-      )
-      this.trayManager.openPopup(x, y)
+      // 布局同步、移动、显示及失焦关闭统一由 TrayManager 管理
+      this.trayManager.openPopup(x, y, side, arrowOffset)
     } else {
       this.trayManager.closePopup()
     }

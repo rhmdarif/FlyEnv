@@ -28,8 +28,18 @@ export default class TrayManager extends EventEmitter {
   status: TrayState | undefined
   show: boolean = false
   clicking: boolean = false
-  primed: boolean = false
   window: BrowserWindow | undefined
+  private lastBlurCloseAt: number = 0
+  private alwaysOnTopArmed: boolean = false
+  private popupGeneration: number = 0
+  private blurArmTimer: ReturnType<typeof setTimeout> | undefined
+  private layoutNonce: number = 0
+  private layoutAppliedResolver: (() => void) | undefined
+  // 弹窗的设计尺寸(WindowManager 创建窗口时也是 270x435),任何 DPI 下 DIP 尺寸都恒定。
+  // 定位/移动都必须用这个常量:Win11 分数缩放下裸 setPosition 每次调用都会让窗口
+  // 膨胀 1~2px,弹窗会越开越大;现读 getBounds() 则会把系统取整抖动反馈进定位。
+  // 每次打开都 setBounds 钉回设计尺寸,DPI 变化造成的漂移也会自动纠正
+  private popupSize = { width: 270, height: 435 }
 
   constructor() {
     super()
@@ -54,6 +64,7 @@ export default class TrayManager extends EventEmitter {
     }
     this.tray.on('right-click', this.handleTrayClick)
     this.tray.on('double-click', () => {
+      this.closePopup()
       this.emit('double-click')
     })
   }
@@ -159,95 +170,107 @@ export default class TrayManager extends EventEmitter {
   onBlur(event: Event) {
     event.preventDefault()
     if (!this.clicking) {
+      this.lastBlurCloseAt = Date.now()
       this.closePopup()
     }
   }
 
   /**
-   * 绑定新建的弹窗窗口。新窗口没有预热过,primed 必须一起重置——托盘样式切换
-   * (modern→classic→modern)会销毁并重建窗口,旧标志会让新窗口跳过屏外预热、淡入复活。
+   * 绑定新建的弹窗窗口。托盘样式切换(modern→classic→modern)会销毁并重建窗口,
+   * 状态标志必须一起重置。
    */
   attachWindow(win: BrowserWindow) {
+    this.closePopup()
     this.window = win
-    this.primed = false
     this.show = false
     this.clicking = false
+    this.alwaysOnTopArmed = false
   }
 
-  /**
-   * 透明窗口每次 hidden→visible 都会被 Windows 重放一次约 300ms 的整窗淡入(与 DOM 无关,
-   * 无法用 CSS 或 DWMWA_TRANSITIONS_FORCEDISABLED 去掉)。所以弹窗窗口创建后先在屏幕外
-   * show 一次,把这次淡入消耗在看不见的地方;之后只靠移动进出屏幕,不再 hide/show。
-   */
-  primePopupWindow() {
-    const win = this.window
-    if (!win || win.isDestroyed() || this.primed) {
-      return
-    }
-    this.primed = true
-    const park = this.parkPosition()
-    win.setPosition(park.x, park.y)
-    win.setOpacity(0)
-    win.showInactive()
-  }
-
-  /** 打开弹窗:窗口一直"显示"着停在屏幕外,这里只移动位置、置顶并恢复不透明 */
-  openPopup(x: number, y: number) {
+  /** 先同步布局再显示。失焦监听在 show 前绑定,避免漏掉打开时的失焦。
+   * Windows 给托盘菜单的前台切换留出短暂缓冲,结束时检查实际焦点。 */
+  async openPopup(x: number, y: number, side: TrayPopupSide, arrowOffset: number) {
     const win = this.window
     if (!win || win.isDestroyed()) {
       return
     }
-    win.setPosition(Math.round(x), Math.round(y))
-    win.setAlwaysOnTop(true, 'screen-saver')
-    win.moveTop()
-    win.setOpacity(1)
-    if (!win.isVisible()) {
-      win.show()
-    }
-    // 移动/改透明度都不会激活窗口,必须显式取焦点,否则"点弹窗外面自动关"的 blur 永远不会触发
-    win.focus()
+    this.closePopup()
+    const generation = this.popupGeneration
+    // 先置意图标志:布局回执是异步的,期间再次点击会得到正确的"关闭"切换
     this.show = true
     this.clicking = true
     win.removeListener('blur', this.onBlur)
-    setTimeout(() => {
-      if (!this.show || win.isDestroyed()) {
-        return
-      }
-      // 先摘再挂:250ms 内快速关→开会叠加多个定时器,避免 onBlur 被注册多份
-      win.removeListener('blur', this.onBlur)
-      win.on('blur', this.onBlur)
-      this.clicking = false
-    }, 250)
+    // 等渲染层真正应用了方向/箭头再显示;直接发 IPC 不等回执的话,窗口可见后
+    // 布局才落地,箭头会以旧位置渲染一帧再跳变(肉眼可见的"闪一下")
+    await this.syncPopupLayout(side, arrowOffset)
+    if (
+      !this.show ||
+      generation !== this.popupGeneration ||
+      win !== this.window ||
+      win.isDestroyed()
+    ) {
+      // 等待期间已被关闭(快速切换),放弃本次打开
+      return
+    }
+    // setBounds 把尺寸钉回设计值:裸 setPosition 在 Win11 分数缩放下每次调用
+    // 都让窗口膨胀 1~2px,弹窗会越开越大
+    win.setBounds({ x: Math.round(x), y: Math.round(y), ...this.popupSize })
+    if (!this.alwaysOnTopArmed) {
+      // 置顶只需设置一次,每次重设都在挑动 z-order,可能引入额外闪烁
+      win.setAlwaysOnTop(true, 'screen-saver')
+      this.alwaysOnTopArmed = true
+    }
+    win.moveTop()
+    win.on('blur', this.onBlur)
+    this.clicking = isWindows()
+    win.show()
+    if (isWindows() && this.show && generation === this.popupGeneration) {
+      this.blurArmTimer = setTimeout(() => {
+        this.blurArmTimer = undefined
+        if (!this.show || generation !== this.popupGeneration || win.isDestroyed()) {
+          return
+        }
+        this.clicking = false
+        // 缓冲期间的 blur 已发生,不能等待窗口再次失焦才关闭。
+        if (!win.isFocused()) {
+          this.lastBlurCloseAt = Date.now()
+          this.closePopup()
+        }
+      }, 250)
+    }
   }
 
-  /** 关闭弹窗:移回屏幕外并置全透明,不能 hide,否则下次显示会再淡入一次 */
+  /** 关闭弹窗:真正 hide。隐藏窗口不存在也就谈不上拦截点击(issue #869),
+   * 不做 setOpacity(0) 之类的伪隐藏,避免再次 show 时不合成画面 */
   closePopup() {
     const win = this.window
     this.show = false
+    this.clicking = false
+    this.popupGeneration += 1
+    if (this.blurArmTimer !== undefined) {
+      clearTimeout(this.blurArmTimer)
+      this.blurArmTimer = undefined
+    }
+    this.layoutAppliedResolver?.()
+    this.layoutAppliedResolver = undefined
     if (!win || win.isDestroyed()) {
       return
     }
-    const park = this.parkPosition()
-    win.setOpacity(0)
-    win.setPosition(park.x, park.y)
     win.removeListener('blur', this.onBlur)
     if (win.isFocused()) {
-      // 窗口只是移出屏幕、并没有 hide,不主动交还焦点的话它会一直攥着键盘输入
+      // 主动交还焦点,避免隐藏前窗口一直攥着键盘输入
       win.blur()
     }
-  }
-
-  /** 屏幕外停放点:所有显示器包围盒之外的左上角 */
-  private parkPosition() {
-    const displays = screen.getAllDisplays()
-    const minX = Math.min(...displays.map((d) => d.bounds.x))
-    const minY = Math.min(...displays.map((d) => d.bounds.y))
-    const width = this.window?.getBounds().width ?? 270
-    return { x: Math.round(minX - width - 100), y: Math.round(minY) }
+    win.hide()
   }
 
   handleTrayClick = (event: any) => {
     event?.preventDefault?.()
+    if (!this.show && Date.now() - this.lastBlurCloseAt < 350) {
+      // Windows 下弹窗打开时点击图标会先触发 blur(已自动关窗)再触发 click,
+      // 此时 this.show 已为 false,若照常处理会把刚关掉的弹窗立刻重新打开
+      return
+    }
     this.clicking = true
     this.window?.removeListener('blur', this.onBlur)
     const { x, y, side, arrowOffset } = this.resolvePlacement()
@@ -260,10 +283,56 @@ export default class TrayManager extends EventEmitter {
     return { side, arrowOffset }
   }
 
+  /** 把方向/箭头一次性推给渲染层(dom-ready 预热用,不等回执) */
+  pushPopupLayout() {
+    const { side, arrowOffset } = this.getPopupLayout()
+    this.sendPopupLayout(side, arrowOffset)
+  }
+
+  /** 渲染层已应用最新布局的回执,由 IPCHandler 转发 */
+  notifyLayoutApplied(nonce: number) {
+    if (nonce === this.layoutNonce) {
+      this.layoutAppliedResolver?.()
+      this.layoutAppliedResolver = undefined
+    }
+  }
+
+  /** 发送布局并等待渲染层回执;回执丢失时按超时兜底,绝不卡住打开流程 */
+  private syncPopupLayout(side: TrayPopupSide, arrowOffset: number): Promise<void> {
+    if (!this.sendPopupLayout(side, arrowOffset)) {
+      return Promise.resolve()
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.layoutAppliedResolver = undefined
+        resolve()
+      }, 150)
+      this.layoutAppliedResolver = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+    })
+  }
+
+  private sendPopupLayout(side: TrayPopupSide, arrowOffset: number): boolean {
+    const win = this.window
+    if (!win || win.isDestroyed()) {
+      return false
+    }
+    this.layoutNonce += 1
+    win.webContents.send('command', 'APP:Tray-Popup-Layout', 'APP:Tray-Popup-Layout', {
+      side,
+      arrowOffset,
+      nonce: this.layoutNonce
+    })
+    return true
+  }
+
   private resolvePlacement(): TrayPopupPlacement {
     const trayBounds = this.tray.getBounds()
-    const windowBounds = this.window?.getBounds()
-    const size = { width: windowBounds?.width ?? 270, height: windowBounds?.height ?? 435 }
+    // 尺寸不能用 getBounds() 现读:系统取整后的实际值会随位置/DPI 抖动,
+    // 用它定位会自我放大误差;统一用设计尺寸,与实际渲染最多差 1px,不可感知
+    const size = this.popupSize
     const centerX = trayBounds.x + trayBounds.width * 0.5
     const centerY = trayBounds.y + trayBounds.height * 0.5
     // 图标可能在副屏上,定位与边界判断都要基于图标所在的显示器
@@ -372,6 +441,7 @@ export default class TrayManager extends EventEmitter {
   }
 
   destroy() {
+    this.closePopup()
     this.tray.removeAllListeners()
     this.tray.setContextMenu(null)
     this.tray.destroy()
