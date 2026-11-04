@@ -30,6 +30,7 @@ import {
   swooleCliPresetCommand,
   type SwooleCliProjectItem
 } from '@/components/SwooleCli/project'
+import { isLicenseLimitReached } from '@shared/licenseLimits'
 
 const logSetDirEnvTiming = (details: Record<string, unknown>) => {
   void writePerformanceLog(
@@ -270,7 +271,8 @@ export class Project {
   }
   addProject() {
     const setupStore = SetupStore()
-    const isLock = !setupStore.isActive && this.project.length > 2
+    const isLock =
+      !setupStore.isActive && isLicenseLimitReached('languageProject', this.project.length)
     if (isLock) {
       MessageError(I18nT('host.licenseTips'))
       return

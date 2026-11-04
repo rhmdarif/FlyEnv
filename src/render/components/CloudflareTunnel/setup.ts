@@ -8,6 +8,7 @@ import { I18nT } from '@lang/index'
 import { clipboard, shell } from '@/util/NodeFn'
 import { MessageError, MessageSuccess } from '@/util/Element'
 import { SetupStore } from '@/components/Setup/store'
+import { isLicenseLimitReached } from '@shared/licenseLimits'
 
 export const ZoneDict: Record<string, ZoneType[]> = reactive({})
 
@@ -112,7 +113,7 @@ export const Setup = () => {
   })
 
   function addDNS(item: CloudflareTunnel) {
-    if (isLocked.value && item.dns.length > 0) {
+    if (isDnsLocked(item)) {
       MessageError(I18nT('host.CloudflareTunnel.licenseTips'))
       return
     }
@@ -127,8 +128,12 @@ export const Setup = () => {
       return false
     }
 
-    return CloudflareTunnelStore.items.length > 0
+    return isLicenseLimitReached('cloudflareTunnel', CloudflareTunnelStore.items.length)
   })
+
+  const isDnsLocked = (item: CloudflareTunnel) => {
+    return isLocked.value && isLicenseLimitReached('cloudflareTunnelDns', item.dns.length)
+  }
 
   return {
     add,
@@ -143,6 +148,7 @@ export const Setup = () => {
     delDNS,
     addDNS,
     log,
-    isLocked
+    isLocked,
+    isDnsLocked
   }
 }

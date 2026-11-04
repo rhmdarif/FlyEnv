@@ -215,6 +215,7 @@
   import Router from '@/router'
   import { AppStore } from '@/store/app'
   import { dialog, fs } from '@/util/NodeFn'
+  import { isLicenseLimitReached } from '@shared/licenseLimits'
 
   const { show, onClosed, onSubmit, closedFn, callback } = AsyncComponentSetup()
 
@@ -427,7 +428,7 @@
   const setupStore = SetupStore()
 
   const isLock = computed(() => {
-    return !setupStore.isActive && item.value.item.length > 2
+    return !setupStore.isActive && isLicenseLimitReached('customModuleItem', item.value.item.length)
   })
 
   const toLicense = () => {

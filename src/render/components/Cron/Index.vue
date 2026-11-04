@@ -85,6 +85,7 @@
   import DialogAdd from './DialogAdd.vue'
   import { useCronStore } from './store'
   import type { CronJob } from '@shared/app'
+  import { isLicenseLimitReached } from '@shared/licenseLimits'
 
   const route = useRoute()
   const router = useRouter()
@@ -107,7 +108,7 @@
   })
 
   const isLock = computed(() => {
-    return !setupStore.isActive && stats.value.total >= 1
+    return !setupStore.isActive && isLicenseLimitReached('cron', stats.value.total)
   })
 
   const hostOptions = computed(() => {

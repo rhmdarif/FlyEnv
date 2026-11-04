@@ -338,6 +338,7 @@
   import { join } from '@/util/path-browserify'
   import { shell } from '@/util/NodeFn'
   import { ProjectItem } from '@/components/LanguageProjects/ProjectItem'
+  import { isLicenseLimitReached } from '@shared/licenseLimits'
 
   const props = defineProps<{
     typeFlag: AllAppModule
@@ -380,7 +381,7 @@
   const setupStore = SetupStore()
 
   const isLock = computed(() => {
-    return !setupStore.isActive && project.project.length > 2
+    return !setupStore.isActive && isLicenseLimitReached('languageProject', project.project.length)
   })
 
   const toLicense = () => {

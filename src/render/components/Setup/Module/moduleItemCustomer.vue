@@ -79,6 +79,7 @@
   import Base from '@/core/Base'
   import { SetupStore } from '@/components/Setup/store'
   import Router from '@/router'
+  import { isLicenseLimitReached } from '@shared/licenseLimits'
 
   const props = defineProps<{
     index: number
@@ -192,7 +193,9 @@
   const setupStore = SetupStore()
 
   const isLock = computed(() => {
-    return !setupStore.isActive && AppCustomerModule.module.length > 2
+    return (
+      !setupStore.isActive && isLicenseLimitReached('customModule', AppCustomerModule.module.length)
+    )
   })
 
   const toLicense = () => {
