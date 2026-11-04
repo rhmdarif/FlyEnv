@@ -15,6 +15,7 @@ import {
   type FlyEnvPluginManifest
 } from '@shared/plugin/PluginManifest'
 import { verifyLicenseCode } from '@shared/license'
+import { LICENSE_CHECK_DISABLED } from '@shared/licenseLimits'
 
 const PLUGIN_STATE_VERSION = 2
 
@@ -173,7 +174,11 @@ export class PluginManager {
     this.stateOverride = options.statePath
     this.fetchImpl = options.fetchImpl ?? proxiedFetch
     this.stopPluginServices = options.stopPluginServices
-    this.licenseCheck = options.licenseCheck ?? (() => verifyLicenseCode(global.Server.Licenses))
+    this.licenseCheck =
+      options.licenseCheck ??
+      (LICENSE_CHECK_DISABLED
+        ? async () => true
+        : () => verifyLicenseCode(global.Server.Licenses))
     this.secretProtect = options.secretProtect
   }
 

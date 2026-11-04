@@ -31,7 +31,7 @@ import { pcReportLinux } from './Linux'
 import { pcReportWindows } from './Windows'
 import process from 'node:process'
 import { withBinVersionCache } from '../../util/BinVersionCache'
-import { isLicenseTrialExpired } from '@shared/licenseLimits'
+import { isLicenseTrialExpired, LICENSE_CHECK_DISABLED } from '@shared/licenseLimits'
 
 const archiveSuffixes = ['.tar.zst', '.tar.gz', '.tar.xz', '.tar.bz2', '.tgz', '.tbz2', '.zip']
 
@@ -352,7 +352,7 @@ class Ollama extends Base {
   chat(param: any, t: number, key: string) {
     return new ForkPromise(async (resolve, reject, on) => {
       let isLock = false
-      if (!global.Server.Licenses) {
+      if (LICENSE_CHECK_DISABLED || !global.Server.Licenses) {
         isLock = true
       } else {
         const getRSAKey = () => {

@@ -20,7 +20,7 @@ import {
 import { machineId } from '../../Fn'
 import { publicDecrypt } from 'crypto'
 import { I18nT } from '@lang/runtime'
-import { isLicenseTrialExpired } from '@shared/licenseLimits'
+import { isLicenseTrialExpired, LICENSE_CHECK_DISABLED } from '@shared/licenseLimits'
 
 type ImageFileItemType = {
   path: string
@@ -154,7 +154,7 @@ class Image extends Base {
   ) {
     return new ForkPromise(async (resolve, reject, on) => {
       let isLock = false
-      if (!global.Server.Licenses) {
+      if (LICENSE_CHECK_DISABLED || !global.Server.Licenses) {
         isLock = true
       } else {
         const getRSAKey = () => {

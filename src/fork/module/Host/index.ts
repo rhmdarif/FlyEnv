@@ -38,7 +38,7 @@ import { splitHostAliases } from '@shared/siteRuntime'
 import { HostsFileLinux, HostsFileMacOS } from '@shared/PlatFormConst'
 import { windowsSystemDirectory } from '@shared/WindowsSystemPaths'
 import { reconcileSystemHostsBlock } from './SystemHostsBlock'
-import { isLicenseLimitReached } from '@shared/licenseLimits'
+import { isLicenseLimitReached, LICENSE_CHECK_DISABLED } from '@shared/licenseLimits'
 import { syncUnixHosts } from './UnixHosts'
 import { timeOperation, timeOperationSync } from '@shared/OperationTiming'
 import { launchWindowsDnsRefresh } from '@shared/WindowsDnsRefresh'
@@ -155,7 +155,7 @@ export class Host extends Base {
       }
 
       let isLock = false
-      if (!global.Server.Licenses) {
+      if (LICENSE_CHECK_DISABLED || !global.Server.Licenses) {
         isLock = isLicenseLimitReached('host', hostList.length)
       } else {
         const getRSAKey = () => {

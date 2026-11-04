@@ -7,7 +7,7 @@ import { MessageError } from '@/util/Element'
 import { reactive } from 'vue'
 import localForage from 'localforage'
 import { shell } from '@/util/NodeFn'
-import { LICENSE_REMINDER_SECONDS } from '@shared/licenseLimits'
+import { LICENSE_CHECK_DISABLED, LICENSE_REMINDER_SECONDS } from '@shared/licenseLimits'
 
 type GitHubUser = {
   uuid: string
@@ -84,7 +84,7 @@ export const SetupStore = defineStore('setup', {
               this.activeCode = data.activeCode
             }
 
-            if (!this.isActive) {
+            if (!this.isActive && !LICENSE_CHECK_DISABLED) {
               const currentTime = Math.round(new Date().getTime() / 1000)
               const maxTime = LICENSE_REMINDER_SECONDS
               if (currentTime - time > maxTime) {

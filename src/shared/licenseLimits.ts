@@ -30,6 +30,12 @@ export const LicenseLimits: Record<
 
 export type LicenseLimitKey = keyof typeof LicenseLimits
 
+/**
+ * Master switch: when true every license check is skipped — count limits, trials,
+ * the startup reminder, the site lock and the plugin install/migration check.
+ */
+export const LICENSE_CHECK_DISABLED: boolean = true
+
 const DAY_SECONDS = 24 * 60 * 60
 
 /**
@@ -39,12 +45,16 @@ const DAY_SECONDS = 24 * 60 * 60
 export const LICENSE_TRIAL_SECONDS: number = Infinity
 
 /** True when the trial never expires, so no trial needs to be started. */
-export const LICENSE_TRIAL_UNLIMITED = LICENSE_TRIAL_SECONDS === Infinity
+export const LICENSE_TRIAL_UNLIMITED =
+  LICENSE_CHECK_DISABLED || LICENSE_TRIAL_SECONDS === Infinity
 
 /** Delay (seconds) after first launch before the daily license reminder is shown. */
 export const LICENSE_REMINDER_SECONDS = 7 * DAY_SECONDS
 
 export function isLicenseLimitReached(key: LicenseLimitKey, count: number) {
+  if (LICENSE_CHECK_DISABLED) {
+    return false
+  }
   return count >= LicenseLimits[key]
 }
 
